@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"regexp"
 
 	"github.com/douban/gobeansdb/store"
 	logrus "github.com/sirupsen/logrus"
@@ -50,6 +51,7 @@ func main() {
 	var dbpathRaw *string = flag.StringP("db-path", "p", "", "db bucket path, eg a/b bucket")
 	var keyStart *int = flag.IntP("start", "s", 0, "key hash cnt start from")
 	var keyLimit *int = flag.IntP("limit", "l", 100, "key hash cnt limit")
+	var keyPattern *string = flag.StringP("key-pattern", "k", "", "if set only dump key string match this regex")
 	var dbAddr *string = flag.StringP("db-addr", "d", "127.0.0.1", "beansdb addr")
 	var dbPort *int = flag.IntP("db-port", "P", 7900, "beansdb port")
 	var dumpTo *string = flag.StringP("dump-to-dir", "D", "./", "dump to dir")
@@ -143,6 +145,12 @@ func main() {
 	procceeded := uint64(0)
 	progressV := uint64(*progress)
 	nodeTotal := uint64(0)
+	needKeyStrMatch := *keyPattern != ""
+	sleepInter := *sleepInterval
+	var re *regexp.Regexp
+	if needKeyStrMatch {
+		re = regexp.MustCompile(*keyPattern)
+	}
 
 	itemF := func(khash uint64, item *store.HTreeItem) {
 		log.Debugf("hash key: %x -> %v\n", khash, item.Pos)
@@ -150,11 +158,19 @@ func main() {
 		if err != nil {
 			log.Errorf("got key err: %s", err)
 		} else {
-			log.Debugf(">>> got key: %s", string(keyBytes))
-			dumpLogger.Info(string(keyBytes))
+			keyStr := string(keyBytes)
+			log.Debugf(">>> got key: %s", keyStr)
+			if needKeyStrMatch {
+				if re.MatchString(keyStr) {
+					dumpLogger.Infof(keyStr)
+				}
+			} else {
+				dumpLogger.Info(keyStr)
+			}
 		}
-		if *sleepInterval > 0 {
-			time.Sleep(time.Millisecond * time.Duration(*sleepInterval))
+
+		if sleepInter > 0 {
+			time.Sleep(time.Millisecond * time.Duration(sleepInter))
 		}
 
 		if progressV > 0 {
