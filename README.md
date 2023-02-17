@@ -1,4 +1,4 @@
-This is a cmd tool for gobeansdb hash tree file parsing.
+A cli tool for gobeansdb hash tree file parsing. You can dump all key's hash value through .hash file and translate to real string key(like redis `keys *` command). Use analysis tool for key pattern frequency statistic. 
 
 
 # usage
