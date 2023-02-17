@@ -17,6 +17,8 @@
 main
 dump_key_*
 htree_parser
+
+cfg.yaml
 # add by pdectl
 .doubanpde/*
 !.doubanpde/pde.yaml

@@ -5,7 +5,7 @@ set -e -o pipefail
 DB_DIR=/var/lib/beansdb
 BKT_PATH=
 DB_HOST=
-RSYNC_PORT=7904
+RSYNCD_PORT=7904
 LOCAL_BEANSDB_DIR=
 DRY_RUN=
 DB_CFG_DIR=
@@ -29,12 +29,12 @@ function ensure_dep {
 
 function usage {
     echo "Migrate single db bucket data to container for annalysis"
+    echo "  eg: bash scripts/migrate_db.sh -b f/6 -h angmar35 -d data/db_dumper/db/ -C data/db_dumper/cfg/ -u beansdb -l 1m"
     echo "-p beansdb db dir, default: /var/lib/beansdb/"
     echo "-h hostname of db"
     echo "-b bucket path, eg 9/1 means /var/lib/beansdb/9/1 bucket, required"
     echo "-d local beansdb dir, required"
     echo "-D dry-run"
-    echo "-c remote db conf dir"
     echo "-C local beansdb conf dir"
     echo "-u username"
     echo "-l dbwidth limit, default: 10000 (10MB/s)"
@@ -61,11 +61,6 @@ function check_args {
         exit 1
     fi
 
-    if [[ -z "${DB_CFG_DIR}" ]]; then
-        echo "-c args required"
-        exit 1
-    fi
-
     if [[ -z $LOCAL_DB_CFG_DIR ]]; then
         echo "-C args required"
         exit 1
@@ -73,14 +68,14 @@ function check_args {
 }
 
 
-while getopts "p:h:b:d:Dc:C:u:l:" opt; do
+while getopts "p:h:b:d:DC:u:l:" opt; do
   case $opt in
     p) DB_DIR=$OPTARG;;
     b) BKT_PATH=$OPTARG;;
     h) DB_HOST=$OPTARG;;
     d) LOCAL_BEANSDB_DIR=$OPTARG;;
     D) DRY_RUN=1;;
-    c) DB_CFG_DIR=$OPTARG;;
+    # c) DB_CFG_DIR=$OPTARG;;
     C) LOCAL_DB_CFG_DIR=$OPTARG;;
     u) USERNAME=$OPTARG;;
     l) BWLIMIT=$OPTARG;;
@@ -101,10 +96,8 @@ fi
 mkdir -p $LOCAL_BEANSDB_DIR/$BKT_PATH/
 
 echo "----------------- start rsync ---------------------"
-echo "===> syncing beansdb cfg ..."
-$rsync_cmd ${USERNAME}@$DB_HOST:$DB_CFG_DIR/ $LOCAL_DB_CFG_DIR/
 echo "===> syncing beansdb btk data ..."
-$rsync_cmd ${USERNAME}@$DB_HOST:$DB_DIR/$BKT_PATH/ $LOCAL_BEANSDB_DIR/$BKT_PATH/
+$rsync_cmd rsync://${USERNAME}@$DB_HOST:${RSYNCD_PORT}/beansdb/$BKT_PATH/ $LOCAL_BEANSDB_DIR/$BKT_PATH/
 echo "========= sync end ========="
 echo ""
 

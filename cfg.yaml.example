@@ -1,0 +1,28 @@
+dumper:
+  keyPatterns: []
+tr:
+  keyPatterns: []
+analysis:
+  # key will be split by / and itered to match thoes regex rules
+  # if matched, this field re's capture group will be replaced
+  # to `replacedTo` str
+
+  # DO NOT USE " to quote string if you have escape symbol in
+  # your regex
+  fieldsREs:
+    - "(^[0-9\.]+$)" # all numbers
+    - "(^[a-zA-Z0-9]{32}$)" # uuid
+    - "(^[\w-\.]+@[\w-]+\.+[\w-]{2,4}$)" # email
+    - "(^0x[a-fA-F0-9]+$)" # hex string
+    - "(.+\.(jpg|jpeg|JPG|png|webp|mp4|mp3)$)" # image post fix
+    - "(.*[A-Z].*)" # UPPER CASE
+    - "([^a-zA-Z0-9])" # non ascii key
+  # key pattern for deduplicate
+  # capture group will be replaced
+  # you should escape re char in you pattern
+  keyREs:
+    - "xxx/xxx/xxx/xxx"
+  # seprator matched this will be replaced to /
+  sepRE: ":|\||\-|_"
+  # field or whole key matched this will be normalized to this str
+  replacedTo: ".+"
