@@ -15,6 +15,7 @@ import (
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
 	Use:   "htree_parser",
+	Version: "v0.0.1",
 	Short: "A htree file parser for key iter in gobeansdb",
 	Long: `Beansdb has not provide key * cmd like redis. When audit or
 annalysis key parttern in production db, we need  a tool for key dump`,
