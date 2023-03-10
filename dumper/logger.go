@@ -50,9 +50,10 @@ func NewDumpFileMgr(dbpathRaw, dumpTo, logLevel *string, rotateSize *int, keyTyp
 
 	// check if target folder already has file
 	patternPath := []string{}
-	for _, _ = range dbpath {
-		patternPath = append(patternPath, "*")
+	for _, dpath := range dbpath {
+		patternPath = append(patternPath, dpath)
 	}
+	patternPath[len(patternPath)-1] = fmt.Sprintf("%s*", patternPath[len(patternPath)-1])
 
 	var kt string
 	switch keyType {
