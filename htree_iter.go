@@ -105,7 +105,8 @@ func (tree *HTree) IterKeyHashes(f ItemFunc, n NodeIterF, start int, limit int) 
 	logger.Infof("tree node info: %v", tree.ni)
 
 	// copy from list top
-	path := fmt.Sprintf("%x", tree.bucketID)
+	pathFormater := fmt.Sprintf("%%0%dx", tree.depth)
+	path := fmt.Sprintf(pathFormater, tree.bucketID)
 	logger.Infof("== path: %s", path)
 	ki := &KeyInfo{
 		StringKey: path,
