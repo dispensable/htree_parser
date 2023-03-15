@@ -142,12 +142,12 @@ func (k *KeyDumper) getHashKeyItemF(nodeTotal *uint64, procceeded *uint64) store
 	if sleepInter == 0 && progressV == 0 {
 		return func(khash uint64, item *store.HTreeItem) {
 			log.Debugf("hash key: %x -> %v\n", khash, item.Pos)
-			dLogger.Printf("%x", khash)
+			dLogger.Printf("%016x", khash)
 		}
 	} else if sleepInter == 0 {
 		return func(khash uint64, item *store.HTreeItem) {
 			log.Debugf("hash key: %x -> %v\n", khash, item.Pos)
-			dLogger.Printf("%x", khash)
+			dLogger.Printf("%016x", khash)
 
 			if progressV > 0 {
 				*procceeded += 1
@@ -159,7 +159,7 @@ func (k *KeyDumper) getHashKeyItemF(nodeTotal *uint64, procceeded *uint64) store
 	} else {
 		return func(khash uint64, item *store.HTreeItem) {
 			log.Debugf("hash key: %x -> %v\n", khash, item.Pos)
-			dLogger.Printf("%x", khash)
+			dLogger.Printf("%016x", khash)
 
 			time.Sleep(time.Millisecond * time.Duration(sleepInter))
 

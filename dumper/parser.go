@@ -51,7 +51,7 @@ func NewKeyFinder(addr string, port uint16) (*KeyFinder, error) {
 }
 
 func (k *KeyFinder) GetKeyByHash(hash uint64) ([]byte, error) {
-	item, err := k.client.Get(fmt.Sprintf("@@%x", hash))
+	item, err := k.client.Get(fmt.Sprintf("@@%016x", hash))
 	if err != nil {
 		return nil, err
 	}
