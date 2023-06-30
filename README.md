@@ -9,7 +9,7 @@ bash scripts/migrate_db.sh -b f/6 -h angmar35 -d data/db_dumper/db/ -C data/db_d
 ```
 
 2. start a local beansdb with synced bucket
-```
+```bash
 # you can sync prod cfg from your cluster
 # edit global.yaml with your data dir and logdir
 
@@ -36,7 +36,8 @@ sudo -u beansdb gobeansdb -confdir data/db_dumper/cfg/
 /htree_parser dumpKey -p 9/9 -H 3 -f ../gobeansdb/testdb/9/9/*.hash -t 1 -g 10 -l 10 -i 0 -c cfg.yaml 
 
 # tr hash key to str key from files
-./htree_parser tr -p 9/9 -g 200 -i 0 -w 9 -F dump_key_btk_9/*.hashkey
+# ! tr will handle blob for you so blob must use signle quote
+./htree_parser tr -p 9/9 -g 200 -i 0 -w 9 -F 'dump_key_btk_9/*.hashkey'
 
 # tr hash key to str key from stdin (use -)
 echo '99fc79f125aec87f' | ./htree_parser tr -p 9/9 -g 200 -i 0 -w 9 -
