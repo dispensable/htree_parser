@@ -29,6 +29,7 @@ type TrKeyUtils struct {
 	progress int
 	sleepInterval int
 	cfg *DumperCfg
+	retries int
 	trFunc func(hkey string, finder *KeyFinder) (string, error)
 }
 
@@ -37,7 +38,7 @@ func NewTrKeyUtils(
 	loadFromFiles *[]string,
 	fromT, toT KeyDumpType,
 	dbPort uint16,
-	rotateSize, sleepInterval, progress, workerNum *int,
+	rotateSize, sleepInterval, progress, workerNum, retries *int,
 ) (*TrKeyUtils, error) {
 
 	tr := new(TrKeyUtils)
@@ -49,8 +50,9 @@ func NewTrKeyUtils(
 	tr.progress = *progress
 	tr.workerNum = *workerNum
 	tr.sleepInterval = *sleepInterval
+	tr.retries = *retries
 
-	kf, err := NewKeyFinder(*dbAddr, dbPort)
+	kf, err := NewKeyFinder(*dbAddr, dbPort, *retries)
 	if err != nil {
 		return nil, err
 	}
@@ -97,8 +99,7 @@ func NewTrKeyUtils(
 				regexp.MustCompile(np),
 			)
 		}
-	}
-	
+	}	
 	return tr, nil
 }
 
@@ -205,7 +206,7 @@ func (tr *TrKeyUtils) TrHkeysFromFiles(files []string, workerNum int, progress i
 		log.Infof("Adding worker number: %d", i)
 		c := make(chan string, 10)
 		consumerChans = append(consumerChans, c)
-		kf, err := NewKeyFinder(tr.dbAddr, tr.dbPort)
+		kf, err := NewKeyFinder(tr.dbAddr, tr.dbPort, tr.retries)
 		if err != nil {
 			return fmt.Errorf("create keyfinder err: %v", err)
 		}

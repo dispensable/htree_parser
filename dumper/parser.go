@@ -16,6 +16,7 @@ type KeyFinderTelnet struct {
 
 type KeyFinder struct {
 	client *libmc.Client
+	retries int
 }
 
 func NewKeyFinderTelnet(addr string, port uint16) (*KeyFinderTelnet, error) {
@@ -34,7 +35,7 @@ func NewKeyFinderTelnet(addr string, port uint16) (*KeyFinderTelnet, error) {
 	
 }
 
-func NewKeyFinder(addr string, port uint16) (*KeyFinder, error) {
+func NewKeyFinder(addr string, port uint16, retries int) (*KeyFinder, error) {
 	servers := []string{fmt.Sprintf("%s:%d", addr, port)}
 	noreply := false
 	hashFunc := libmc.HashCRC32
@@ -47,11 +48,21 @@ func NewKeyFinder(addr string, port uint16) (*KeyFinder, error) {
 
 	return &KeyFinder{
 		client: client,
+		retries: retries,
 	}, nil
 }
 
 func (k *KeyFinder) GetKeyByHash(hash uint64) ([]byte, error) {
-	item, err := k.client.Get(fmt.Sprintf("@@%016x", hash))
+	var item *libmc.Item
+	var err error
+	
+	for i := 0; i < k.retries; i++ {
+		item, err = k.client.Get(fmt.Sprintf("@@%016x", hash))
+		if err == nil {
+			break
+		}
+	}
+
 	if err != nil {
 		return nil, err
 	}

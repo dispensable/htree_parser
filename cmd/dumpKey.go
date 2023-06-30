@@ -31,6 +31,7 @@ func init() {
 		progress *int
 		keyType *int
 		cfgFile *string
+		retries *int
 	)
 
 	dumpKeyCmd := &cobra.Command{
@@ -58,7 +59,7 @@ use dumpKey -t 1 cmd or use trHkeytokeystr from your hash key files.
 
 			// set logger and file dumper
 			d, err := dumper.NewKeyDumper(
-				BktNumbers, HtreeHeight, keyStart, keyLimit, dbPort, rotateSize, sleepInterval, progress,
+				BktNumbers, HtreeHeight, keyStart, keyLimit, dbPort, rotateSize, sleepInterval, progress, retries,
 				DBHashFile, dbpathRaw, keyPattern, dbAddr, dumpTo, loggerLevel, cfgFile,
 				kt,
 			)
@@ -87,6 +88,7 @@ use dumpKey -t 1 cmd or use trHkeytokeystr from your hash key files.
 	loggerLevel = flag.StringP("log-level", "L", "info", "log level: info warn error fatal debug trace")
 	progress = flag.IntP("progress", "g", 1000, "show progress every N lines, 0 means no progress")
 	keyType = flag.IntP("key-type", "t", 0, "dumped key type, 0: hash key 1: string key")
+	retries = flag.IntP("strkey-retries", "R", 3, "retry times when libmc get key err")
 
 	dumpKeyCmd.MarkFlagRequired("key-type")
 	dumpKeyCmd.MarkFlagRequired("hash-file")

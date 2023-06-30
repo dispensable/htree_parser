@@ -40,6 +40,7 @@ means from type hash to type str
 	var loggerLevel *string = flag.StringP("log-level", "L", "info", "log level: info warn error fatal debug trace")
 	var progress *int = flag.IntP("progress", "g", 1000, "show progress every N lines, 0 means no progress(only support tr from file)")
 	var workerNum *int = flag.IntP("worker-num", "w", 1, "only support tr from file")
+	var retries *int = flag.IntP("retries", "R", 3, "retry times when libmc err")
 
 	trCmd.RunE = func(cmd *cobra.Command, args []string) error {
 		matches, err := filepath.Glob(*loadFromFiles)
@@ -52,7 +53,7 @@ means from type hash to type str
 			&matches,
 			dumper.KeyDumpType(*fromT), dumper.KeyDumpType(*toT),
 			uint16(*dbPort),
-			rotateSize, sleepInterval, progress, workerNum,
+			rotateSize, sleepInterval, progress, workerNum, retries,
 		)
 		if err != nil {
 			return err

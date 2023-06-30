@@ -42,13 +42,14 @@ type KeyDumper struct {
 	KeyType KeyDumpType
 
 	HTree *store.HTree
+	retries *int
 	KeyFinder *KeyFinder
 
 	cfg *DumperCfg
 }
 
 func NewKeyDumper(
-	bktNum, htreeHeight, start, limit, dbPort, maxFileSizeMB, sleepInterval, progress *int,
+	bktNum, htreeHeight, start, limit, dbPort, maxFileSizeMB, sleepInterval, progress, retries *int,
 	hashF, bktPath, keyPattern, dbAddr, dumpToDir, logLevel, cfgFile *string,
 	keyType KeyDumpType,
 ) (*KeyDumper, error) {
@@ -107,6 +108,9 @@ func NewKeyDumper(
 			)
 		}
 	}
+
+	keyDumper.retries = retries
+	
 	log.Debugf("keyDumper: %+v", keyDumper)
 	return keyDumper, nil
 }
@@ -254,7 +258,7 @@ func (k *KeyDumper) DumpKeys() error {
 		itemF = k.getHashKeyItemF(&nodeTotal, &procceeded)
 	case StrKey:
 		ktStr = "str"
-		keyFinder, err := NewKeyFinder(k.DBAddr, uint16(k.DBPort))
+		keyFinder, err := NewKeyFinder(k.DBAddr, uint16(k.DBPort), *k.retries)
 		if err != nil {
 			return fmt.Errorf("create str key finder err: %v", err)
 		}
