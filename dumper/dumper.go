@@ -30,6 +30,7 @@ type KeyDumper struct {
 	KeyPatternRaw string
 	KeyPatternRegex *regexp.Regexp
 	KeyPatternRegexes []*regexp.Regexp
+	NotKeyPatternRegexes []*regexp.Regexp
 	
 	DBAddr string
 	DBPort int
@@ -96,6 +97,13 @@ func NewKeyDumper(
 			keyDumper.KeyPatternRegexes = append(
 				keyDumper.KeyPatternRegexes,
 				regexp.MustCompile(p),
+			)
+		}
+
+		for _, np := range keyDumper.cfg.Dumper.NotKeyPatterns {
+			keyDumper.NotKeyPatternRegexes = append(
+				keyDumper.NotKeyPatternRegexes,
+				regexp.MustCompile(np),
 			)
 		}
 	}
@@ -177,8 +185,9 @@ func (k *KeyDumper) getStrKeyItemF(nodeTotal *uint64, procceeded *uint64, keyFin
 	progressV := uint64(k.Progress)
 	sleepInter := k.SleepInterval
 	dLogger := k.DumpFMgr.DumpLogger
-	needKeyStrMatch := len(k.KeyPatternRegexes) != 0
+	needKeyStrMatch := len(k.KeyPatternRegexes) != 0 || len(k.NotKeyPatternRegexes) != 0
 	res := k.KeyPatternRegexes
+	nres := k.NotKeyPatternRegexes
 
 	return func(khash uint64, item *store.HTreeItem) {
 		log.Debugf("hash key: %x -> %v\n", khash, item.Pos)
@@ -189,10 +198,20 @@ func (k *KeyDumper) getStrKeyItemF(nodeTotal *uint64, procceeded *uint64, keyFin
 			keyStr := string(keyBytes)
 			log.Debugf(">>> got key: %s", keyStr)
 			if needKeyStrMatch {
-				for _, re := range res {
-					if re.MatchString(keyStr) {
-						dLogger.Infof(keyStr)
+				canSelect := true
+				for _, nre := range nres {
+					if nre.MatchString(keyStr) {
+						canSelect = false
 						break
+					}
+				}
+
+				if canSelect {
+					for _, re := range res {
+						if re.MatchString(keyStr) {
+							dLogger.Infof(keyStr)
+							break
+						}
 					}
 				}
 			} else {

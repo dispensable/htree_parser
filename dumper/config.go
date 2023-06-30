@@ -16,9 +16,11 @@ type DumperCfg struct {
 	} `yaml:"analysis"`
 	Dumper struct {
 		KeyPatterns []string `yaml:"keyPatterns"`
+		NotKeyPatterns []string `yaml:"notKeyPatterns"`
 	} `yaml:"dumper"`
 	TR struct {
 		KeyPatterns []string `yaml:"keyPatterns"`
+		NotKeyPatterns []string `yaml:"notKeyPatterns"`
 	} `yaml:"tr"`
 }
 

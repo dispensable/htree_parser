@@ -1,7 +1,9 @@
 dumper:
   keyPatterns: []
+  notKeyPatterns: []
 tr:
   keyPatterns: []
+  notKeyPatterns: []
 analysis:
   # key will be split by / and itered to match thoes regex rules
   # if matched, this field re's capture group will be replaced

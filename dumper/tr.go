@@ -18,9 +18,13 @@ type TrKeyUtils struct {
 	loadF []string
 	dumpFMgr *DumpFileMgr
 	keyFinder *KeyFinder
+
 	keyPatternRaw *string
 	keyPatternRe *regexp.Regexp
 	KeyPatternRegexes []*regexp.Regexp
+
+	NotKeyPatternRegexes []*regexp.Regexp
+
 	workerNum int
 	progress int
 	sleepInterval int
@@ -86,6 +90,13 @@ func NewTrKeyUtils(
 				regexp.MustCompile(p),
 			)
 		}
+
+		for _, np := range tr.cfg.TR.NotKeyPatterns {
+			tr.NotKeyPatternRegexes = append(
+				tr.NotKeyPatternRegexes,
+				regexp.MustCompile(np),
+			)
+		}
 	}
 	
 	return tr, nil
@@ -116,6 +127,12 @@ func (tr *TrKeyUtils) trHkeyToStrWhenMatch(hkey string, finder *KeyFinder) (stri
 	r, err := tr.trHkeyToStr(hkey, finder)
 	if err != nil {
 		log.Errorf("parse key %s failed: %s", hkey, err)
+	}
+
+	for _, nre := range tr.NotKeyPatternRegexes {
+		if nre.MatchString(r) {
+			return "", fmt.Errorf("%s match not keypattern", r)
+		}
 	}
 
 	for _, re := range tr.KeyPatternRegexes {
