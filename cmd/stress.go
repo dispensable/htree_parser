@@ -24,6 +24,7 @@ support actions:
 - getcmp: get key from both db and compare
 - get: get key from db
 - getsetp: get/set by use specific proportion eg: -r=5 means 50% read 50% write
+- sync: for each key, use fromdb as source, sync to tofinder
 
 `,
 	}
@@ -36,7 +37,7 @@ support actions:
 	var loadFromFiles *string = flag.StringP(
 		"load-from-file", "F", "",
 		"load from type key from file path, support glob, remember use single quote in shell '")
-	var action *string = flag.StringP("action", "a", "getset", "action of stress: getset/getcmp/get/getsetp")
+	var action *string = flag.StringP("action", "a", "getset", "action of stress: getset/getcmp/get/getsetp/sync")
 	var readScale *int = flag.IntP("read-scale", "r", 5, "only make sense in action getsetp. this specifc read stress scale must < 10")
 	var sleepInterval *int = flag.IntP("sleep-interval-ms", "i", 1000, "sleep N ms during each key get")
 	var dbpathRaw *string = flag.StringP("db-path", "p", "", "db bucket path, eg a/b bucket")

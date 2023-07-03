@@ -85,6 +85,37 @@ func stGetCmp(key string, fromFinder, toFinder *KeyFinder) error {
 	return fmt.Errorf("itemF and itemT not equal: %v || %v", itemF, itemT)
 }
 
+func stSync(key string, fromFinder, toFinder *KeyFinder) error {
+	itemF, errf := fromFinder.client.Get(key)
+	itemT, errt := toFinder.client.Get(key)
+
+	if errf != nil {
+		return errf
+	}
+
+	if errt != nil {
+		return errt
+	}
+
+	if itemF == nil && itemT == nil {
+		return nil
+	}
+
+	if itemF == nil || itemT == nil {
+		if itemF == nil {
+			return toFinder.client.Delete(key)
+		} else {
+			return toFinder.client.Set(itemF)
+		}
+	}
+
+	if bytes.Compare(itemF.Value, itemT.Value) == 0 {
+		return nil
+	}
+
+	return toFinder.client.Set(itemF)
+}
+
 func getFuncByRW(r int) (stFuncT, error) {
 	if !(r < 10) {
 		return nil, fmt.Errorf("r must < 10")
@@ -137,6 +168,8 @@ func NewStressUtils(
 		st.stFunc = stGet
 	case "getcmp":
 		st.stFunc = stGetCmp
+	case "sync":
+		st.stFunc = stSync
 	case "getsetp":
 		f, err := getFuncByRW(st.r)
 		if err != nil {
