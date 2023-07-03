@@ -1,6 +1,5 @@
 /*
 Copyright © 2023
-
 */
 package cmd
 
@@ -40,9 +39,14 @@ support actions:
 	var action *string = flag.StringP("action", "a", "getset", "action of stress: getset/getcmp/get/getsetp")
 	var readScale *int = flag.IntP("read-scale", "r", 5, "only make sense in action getsetp. this specifc read stress scale must < 10")
 	var sleepInterval *int = flag.IntP("sleep-interval-ms", "i", 1000, "sleep N ms during each key get")
+	var dbpathRaw *string = flag.StringP("db-path", "p", "", "db bucket path, eg a/b bucket")
+	var rotateSize *int = flag.IntP("max-file-size-mb", "S", 500, "rotate file when dump file size over this throshold, MB")
+	var loggerLevel *string = flag.StringP("log-level", "L", "info", "log level: info warn error fatal debug trace")
+	var dumpTo *string = flag.StringP("dump-to-dir", "D", "./", "dump to dir")
 	var progress *int = flag.IntP("progress", "g", 1000, "show progress every N lines, 0 means no progress(only support tr from file)")
 	var workerNum *int = flag.IntP("worker-num", "w", 1, "only support tr from file")
 	var retries *int = flag.IntP("retries", "R", 3, "retry times when libmc err")
+	var dumpErrorKey *bool = flag.BoolP("dump-error-key", "e", false, "dump errorkeys also")
 
 	stcmd.RunE = func(cmd *cobra.Command, args []string) error {
 		matches, err := filepath.Glob(*loadFromFiles)
@@ -51,10 +55,11 @@ support actions:
 		}
 
 		stU, err := dumper.NewStressUtils(
-			dbAddr, todbAddr, action, 
+			dbAddr, todbAddr, action, dbpathRaw, dumpTo, loggerLevel,
 			&matches,
 			uint16(*dbPort), uint16(*todbPort),
-			sleepInterval, progress, workerNum, retries, readScale,
+			sleepInterval, progress, workerNum, retries, readScale, rotateSize,
+			dumpErrorKey,
 		)
 		if err != nil {
 			return err

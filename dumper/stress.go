@@ -2,6 +2,7 @@ package dumper
 
 import (
 	"bufio"
+	"bytes"
 	"fmt"
 	"os"
 	"sync"
@@ -16,6 +17,7 @@ type StressUtils struct {
 	dbPort uint16
 	todbAddr string
 	todbPort uint16
+	dumpFMgr *DumpFileMgr
 	loadF []string
 
 	workerNum int
@@ -29,6 +31,7 @@ type StressUtils struct {
 	// get -> set
 	// get
 	stFunc stFuncT
+	dumpErrorKey bool
 
 	// read proportion
 	r int
@@ -72,14 +75,14 @@ func stGetCmp(key string, fromFinder, toFinder *KeyFinder) error {
 	}
 
 	if itemF == nil || itemT == nil {
-		return fmt.Errorf("itemF: %s itemT: %s | not all nil", itemF, itemT)
+		return fmt.Errorf("itemF: %v itemT: %v | not all nil", itemF, itemT)
 	}
 
-	if string(itemF.Value) == string(itemT.Value) {
+	if bytes.Compare(itemF.Value, itemT.Value) == 0 {
 		return nil
 	}
 
-	return fmt.Errorf("itemF and itemT not equal: %s || %s", itemF, itemT)
+	return fmt.Errorf("itemF and itemT not equal: %v || %v", itemF, itemT)
 }
 
 func getFuncByRW(r int) (stFuncT, error) {
@@ -97,10 +100,11 @@ func getFuncByRW(r int) (stFuncT, error) {
 }
 
 func NewStressUtils(
-	dbAddr, todbAddr, action *string,
+	dbAddr, todbAddr, action, dbpathRaw, dumpTo, loggerLevel *string,
 	loadFromFiles *[]string,
 	dbPort, todbPort uint16,
-	sleepInterval, progress, workerNum, retries, readProportion *int,
+	sleepInterval, progress, workerNum, retries, readProportion, rotateSize *int,
+	dumpErrorKey *bool,
 ) (*StressUtils, error) {
 
 	st := new(StressUtils)
@@ -114,7 +118,15 @@ func NewStressUtils(
 	st.workerNum = *workerNum
 	st.sleepInterval = *sleepInterval
 	st.retries = *retries
-
+	st.dumpErrorKey = *dumpErrorKey
+	if st.dumpErrorKey {
+		mgr, err := NewDumpFileMgr(dbpathRaw, dumpTo, loggerLevel, rotateSize, ErrorKey)
+		if err != nil {
+			return nil, err
+		}
+		st.dumpFMgr = mgr
+	}
+	
 	st.action = *action
 	st.r = *readProportion
 
@@ -175,6 +187,9 @@ func (st *StressUtils) GetKeysAndAct(files []string, workerNum int, progress int
 				err := st.stFunc(t, fkf, tkf)
 				if err != nil {
 					log.Debugf("run %s on key %s err: %v", st.action, t, err)
+					if st.dumpErrorKey {
+						st.dumpFMgr.DumpLogger.Info(t)
+					}
 					errored += 1
 					continue
 				}

@@ -63,6 +63,8 @@ func NewDumpFileMgr(dbpathRaw, dumpTo, logLevel *string, rotateSize *int, keyTyp
 		kt = "str"
 	case NurlKey:
 		kt = "nurl"
+	case ErrorKey:
+		kt = "error"
 	default:
 		return nil, fmt.Errorf("unsupport keytyle: %v", keyType)
 	}

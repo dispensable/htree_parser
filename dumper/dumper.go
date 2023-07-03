@@ -17,6 +17,7 @@ const (
 	HashKey KeyDumpType = 0
 	StrKey KeyDumpType = 1
 	NurlKey KeyDumpType = 2
+	ErrorKey KeyDumpType = 3
 )
 
 type KeyDumper struct {
