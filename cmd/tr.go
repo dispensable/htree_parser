@@ -25,7 +25,7 @@ means from type hash to type str
 
 	flag := trCmd.Flags()
 	var dbAddr *string = flag.StringP("db-addr", "d", "127.0.0.1", "beansdb addr")
-	var dbPort *int16 = flag.Int16P("db-port", "P", 7900, "beansdb port")
+	var dbPort *uint16 = flag.Uint16P("db-port", "P", 7900, "beansdb port")
 	var fromT *int = flag.IntP("from", "f", 0, "from type, 0: hash key type")
 	var toT *int = flag.IntP("to", "t", 1, "to type: 1: str key type")
 	var loadFromFiles *string = flag.StringP(
