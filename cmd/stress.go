@@ -25,7 +25,7 @@ support actions:
 - get: get key from db
 - getsetp: get/set by use specific proportion eg: -r=5 means 50% read 50% write
 - sync: for each key, use fromdb as source, sync to tofinder
-
+- delete: for each key, delete from --db-addr
 `,
 	}
 
@@ -48,6 +48,7 @@ support actions:
 	var workerNum *int = flag.IntP("worker-num", "w", 1, "only support tr from file")
 	var retries *int = flag.IntP("retries", "R", 3, "retry times when libmc err")
 	var dumpErrorKey *bool = flag.BoolP("dump-error-key", "e", false, "dump errorkeys also")
+	var production *bool = flag.BoolP("production", "y", false, "if set, really run the action")
 
 	stcmd.RunE = func(cmd *cobra.Command, args []string) error {
 		matches, err := filepath.Glob(*loadFromFiles)
@@ -60,7 +61,7 @@ support actions:
 			&matches,
 			uint16(*dbPort), uint16(*todbPort),
 			sleepInterval, progress, workerNum, retries, readScale, rotateSize,
-			dumpErrorKey,
+			dumpErrorKey, production,
 		)
 		if err != nil {
 			return err

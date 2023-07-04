@@ -10,7 +10,7 @@ import (
 	"math/rand"
 )
 
-type stFuncT func(string, *KeyFinder, *KeyFinder) error
+type stFuncT func(string, *KeyFinder, *KeyFinder, bool) error
 
 type StressUtils struct {
 	dbAddr string
@@ -32,12 +32,13 @@ type StressUtils struct {
 	// get
 	stFunc stFuncT
 	dumpErrorKey bool
+	production bool
 
 	// read proportion
 	r int
 }
 
-func stGetSet(key string, fromFinder, toFinder *KeyFinder) error {
+func stGetSet(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
 	item, err := fromFinder.client.Get(key)
 	if item == nil {
 		return nil
@@ -46,11 +47,15 @@ func stGetSet(key string, fromFinder, toFinder *KeyFinder) error {
 	if err != nil {
 		return err
 	}
-
-	return toFinder.client.Set(item)
+	if prod {
+		return toFinder.client.Set(item)
+	} else {
+		log.Infof("[DRY RUN] will set key %s to %s", key, item.Value)
+	}
+	return nil
 }
 
-func stGet(key string, fromFinder, toFinder *KeyFinder) error {
+func stGet(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
 	item, err := toFinder.client.Get(key)
 	if item == nil {
 		return nil
@@ -58,7 +63,7 @@ func stGet(key string, fromFinder, toFinder *KeyFinder) error {
 	return err
 }
 
-func stGetCmp(key string, fromFinder, toFinder *KeyFinder) error {
+func stGetCmp(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
 	itemF, errf := fromFinder.client.Get(key)
 	itemT, errt := toFinder.client.Get(key)
 
@@ -85,7 +90,7 @@ func stGetCmp(key string, fromFinder, toFinder *KeyFinder) error {
 	return fmt.Errorf("itemF and itemT not equal: %v || %v", itemF, itemT)
 }
 
-func stSync(key string, fromFinder, toFinder *KeyFinder) error {
+func stSync(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
 	itemF, errf := fromFinder.client.Get(key)
 	itemT, errt := toFinder.client.Get(key)
 
@@ -103,9 +108,17 @@ func stSync(key string, fromFinder, toFinder *KeyFinder) error {
 
 	if itemF == nil || itemT == nil {
 		if itemF == nil {
-			return toFinder.client.Delete(key)
+			if prod {
+				return toFinder.client.Delete(key)
+			} else {
+				log.Infof("[DRY RUN] will delete key from to finder: %s", key)
+			}
 		} else {
-			return toFinder.client.Set(itemF)
+			if prod {
+				return toFinder.client.Set(itemF)
+			} else {
+				log.Infof("[DRY RUN] will set key %s to %s", key, itemF.Value)
+			}
 		}
 	}
 
@@ -113,7 +126,22 @@ func stSync(key string, fromFinder, toFinder *KeyFinder) error {
 		return nil
 	}
 
-	return toFinder.client.Set(itemF)
+	if prod {
+		return toFinder.client.Set(itemF)
+	} else {
+		log.Infof("[DRY RUN] will set key %s to %s", key, itemF.Value)
+	}
+	return nil
+}
+
+func stDelete(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
+	// _ = toFinder
+	if prod {
+		return fromFinder.client.Delete(key)
+	} else {
+		log.Infof("[DRY RUN] will delete key: %s", key)
+	}
+	return nil
 }
 
 func getFuncByRW(r int) (stFuncT, error) {
@@ -121,11 +149,11 @@ func getFuncByRW(r int) (stFuncT, error) {
 		return nil, fmt.Errorf("r must < 10")
 	}
 
-	return func(key string, fkf, tkf *KeyFinder) error {
+	return func(key string, fkf, tkf *KeyFinder, prod bool) error {
 		if rand.Intn(10) < r {
-			return stGet(key, fkf, tkf)
+			return stGet(key, fkf, tkf, prod)
 		} else {
-			return stGetSet(key, fkf, tkf)
+			return stGetSet(key, fkf, tkf, prod)
 		}
 	}, nil
 }
@@ -135,7 +163,7 @@ func NewStressUtils(
 	loadFromFiles *[]string,
 	dbPort, todbPort uint16,
 	sleepInterval, progress, workerNum, retries, readProportion, rotateSize *int,
-	dumpErrorKey *bool,
+	dumpErrorKey, production *bool,
 ) (*StressUtils, error) {
 
 	st := new(StressUtils)
@@ -150,6 +178,7 @@ func NewStressUtils(
 	st.sleepInterval = *sleepInterval
 	st.retries = *retries
 	st.dumpErrorKey = *dumpErrorKey
+	st.production = *production
 	if st.dumpErrorKey {
 		mgr, err := NewDumpFileMgr(dbpathRaw, dumpTo, loggerLevel, rotateSize, ErrorKey)
 		if err != nil {
@@ -176,6 +205,8 @@ func NewStressUtils(
 			return nil, err
 		}
 		st.stFunc = f
+	case "delete":
+		st.stFunc = stDelete
 	default:
 		st.stFunc = stGetSet
 	}
@@ -211,13 +242,13 @@ func (st *StressUtils) GetKeysAndAct(files []string, workerNum int, progress int
 
 		toKeyFinders = append(toKeyFinders, tkf)
 
-		go func(fkf, tkf *KeyFinder, taskChan chan string, idx int) {
+		go func(fkf, tkf *KeyFinder, taskChan chan string, idx int, prod bool) {
 			defer wg.Done()
 			log.Infof("consumer %d started ...", idx)
 			total := 0
 			errored := 0
 			for t := range taskChan {
-				err := st.stFunc(t, fkf, tkf)
+				err := st.stFunc(t, fkf, tkf, prod)
 				if err != nil {
 					log.Debugf("run %s on key %s err: %v", st.action, t, err)
 					if st.dumpErrorKey {
@@ -235,7 +266,7 @@ func (st *StressUtils) GetKeysAndAct(files []string, workerNum int, progress int
 				}
 			}
 			log.Infof("consumer %d exit, total: %d, error: %d", idx, total, errored)
-		}(fkf, tkf, c, i)
+		}(fkf, tkf, c, i, st.production)
 	}
 
 	// producer creat tasks to worker
