@@ -37,6 +37,9 @@ support actions:
 	var loadFromFiles *string = flag.StringP(
 		"load-from-file", "F", "",
 		"load from type key from file path, support glob, remember use single quote in shell '")
+	var statusF *string = flag.StringP(
+		"status-file", "f", "",
+		"status file of process")
 	var action *string = flag.StringP("action", "a", "getset", "action of stress: getset/getcmp/get/getsetp/sync")
 	var readScale *int = flag.IntP("read-scale", "r", 5, "only make sense in action getsetp. this specifc read stress scale must < 10")
 	var sleepInterval *int = flag.IntP("sleep-interval-ms", "i", 1000, "sleep N ms during each key get")
@@ -57,7 +60,7 @@ support actions:
 		}
 
 		stU, err := dumper.NewStressUtils(
-			dbAddr, todbAddr, action, dbpathRaw, dumpTo, loggerLevel,
+			dbAddr, todbAddr, action, dbpathRaw, dumpTo, loggerLevel, statusF,
 			&matches,
 			uint16(*dbPort), uint16(*todbPort),
 			sleepInterval, progress, workerNum, retries, readScale, rotateSize,

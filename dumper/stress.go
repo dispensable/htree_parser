@@ -3,14 +3,26 @@ package dumper
 import (
 	"bufio"
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"sync"
+	"time"
+	"syscall"
+	"os/signal"
 
 	"math/rand"
 )
 
 type stFuncT func(string, *KeyFinder, *KeyFinder, bool) error
+
+type StressStatus struct {
+	HandledF []string `json:"handled_files"`
+	CurrentF string `json:"current_file"`
+	CurrentKey string `json:"current_key"`
+	SafeKeyLineCnt int `json:"safe_key_line_cnt"`
+}
 
 type StressUtils struct {
 	dbAddr string
@@ -36,6 +48,10 @@ type StressUtils struct {
 
 	// read proportion
 	r int
+
+	// status file
+	statusF string
+	status *StressStatus
 }
 
 func stGetSet(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
@@ -159,7 +175,7 @@ func getFuncByRW(r int) (stFuncT, error) {
 }
 
 func NewStressUtils(
-	dbAddr, todbAddr, action, dbpathRaw, dumpTo, loggerLevel *string,
+	dbAddr, todbAddr, action, dbpathRaw, dumpTo, loggerLevel, statusF *string,
 	loadFromFiles *[]string,
 	dbPort, todbPort uint16,
 	sleepInterval, progress, workerNum, retries, readProportion, rotateSize *int,
@@ -179,6 +195,20 @@ func NewStressUtils(
 	st.retries = *retries
 	st.dumpErrorKey = *dumpErrorKey
 	st.production = *production
+	st.statusF = *statusF
+
+	if st.statusF != "" {
+		if exists, _ := IsPathExists(st.statusF); exists {
+			status, err := LoadStatus(st.statusF)
+			if err != nil {
+				return nil, fmt.Errorf("Load status from %s err: %s", st.statusF, err)
+			}
+			st.status = status
+		} else {
+			st.status = new(StressStatus)
+		}
+	}
+
 	if st.dumpErrorKey {
 		mgr, err := NewDumpFileMgr(dbpathRaw, dumpTo, loggerLevel, rotateSize, ErrorKey)
 		if err != nil {
@@ -214,18 +244,140 @@ func NewStressUtils(
 	return st, nil
 }
 
+func sliceContains(s []string, e string) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+func LoadStatus(statusF string) (*StressStatus, error) {
+	status, err := ioutil.ReadFile(statusF)
+	if err != nil {
+		return nil, err
+	}
+
+	var s StressStatus
+	if err = json.Unmarshal(status, &s); err != nil {
+		return nil, err
+	}
+
+	return &s, nil
+}
+
+func (ss *StressStatus) PickKeyFiles(loadFiles []string) ([]string, []string, int, error) {
+	result := []string{ss.CurrentF}
+	handled := []string{}
+	shouldBeTrue := false
+
+	for _, f := range loadFiles {
+		if ss.CurrentF == f {
+			shouldBeTrue = true
+			continue
+		}
+
+		if sliceContains(ss.HandledF, f) {
+			handled = append(handled, f)
+		} else {
+			result = append(result, f)
+		}
+	}
+
+	if !shouldBeTrue {
+		return nil, nil, 0, fmt.Errorf("status seems broken, if loadf contains this status ?")
+	}
+
+	// handle current file to drop processed line
+	file, err := os.Open(ss.CurrentF)
+	if err != nil {
+		return nil, nil, 0, err
+	}
+
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	startCnt := 0
+	for scanner.Scan() {
+		startCnt += 1
+		if scanner.Text() == ss.CurrentKey {
+			if startCnt - ss.SafeKeyLineCnt < 0 {
+				// means we are handle the last file
+				startCnt = 0
+			} else {
+				startCnt -= ss.SafeKeyLineCnt
+			}
+			return result, handled, startCnt, nil
+		}
+	}
+
+	return nil, nil, 0, fmt.Errorf("can't find status key %s in file: %s", ss.CurrentKey, ss.CurrentF)
+}
+
+func IsPathExists(path string) (bool, error) {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	return false, err
+}
+
+func (ss *StressStatus) Save(toF string) {
+	c, err := json.MarshalIndent(ss, "", "  ")
+	if err != nil {
+		log.Errorf("marshal status failed: %v | %v", ss, err)
+		return
+	}
+
+	// print old status
+	// what if we passed wrong params
+	var f *os.File
+	if exists, _ := IsPathExists(toF); exists {
+		log.Warnf("%s already exists, will overwrite it", toF)
+
+		oldC, err := ioutil.ReadFile(toF)
+		if err != nil {
+			log.Errorf("read %s failed", toF)
+		} else {
+			log.Warnf("old content of flie %s\n%s\n", toF, oldC)
+		}
+
+		f, err = os.OpenFile(toF, os.O_TRUNC|os.O_WRONLY, 0755)
+	} else {
+		f, err = os.Create(toF)
+	}
+
+	if err != nil {
+		log.Errorf("can't create/write to file: %s \n%s, err: %s", toF, c, err)
+		return
+	}
+	// write to file
+	defer f.Close()
+
+	log.Infof("new status write:\n%s", c)
+	_, err = f.Write(c)
+	if err != nil {
+		log.Errorf("write to file %s err: %s\n%s", toF, err, c)
+	}
+}
+
 func (st *StressUtils) GetKeysAndAct(files []string, workerNum int, progress int) error {
 	var wg sync.WaitGroup
 	var consumerChans []chan string
 	
 	var fromKeyFinders []*KeyFinder
 	var toKeyFinders []*KeyFinder
+	chanBufferLen := 10
 	
 	for i := 0; i <= workerNum-1; i++ {
 		wg.Add(1)
 
 		log.Infof("Adding worker number: %d", i)
-		c := make(chan string, 10)
+		c := make(chan string, chanBufferLen)
 		consumerChans = append(consumerChans, c)
 
 		fkf, err := NewKeyFinder(st.dbAddr, st.dbPort, st.retries)
@@ -269,6 +421,17 @@ func (st *StressUtils) GetKeysAndAct(files []string, workerNum int, progress int
 		}(fkf, tkf, c, i, st.production)
 	}
 
+	// save satus if ctrl-c
+	sigc := make(chan os.Signal)
+	signal.Notify(sigc, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		<-sigc
+		if st.status != nil {
+			st.status.Save(st.statusF)
+		}
+	    os.Exit(1)
+	}()
+
 	// producer creat tasks to worker
 	log.Infof("creating producer ...")
 	go func() {
@@ -281,6 +444,29 @@ func (st *StressUtils) GetKeysAndAct(files []string, workerNum int, progress int
 		}()
 
 		total := 0
+		var startCnt int
+		if st.statusF != "" && st.status != nil {
+			if st.status.CurrentF != "" {
+				waitForHandle, handled, cnt, err := st.status.PickKeyFiles(files)
+				if err != nil {
+					log.Errorf("check status file err: %s", err)
+					return
+				}
+				st.status.HandledF = handled
+				files = waitForHandle
+				startCnt = cnt
+			} else {
+				// fresh status need init
+				st.status.HandledF = []string{}
+			}
+			// previous keys may need re handle
+			// + n (>1) to prevent -1 err
+			// we don't care to replay some keys
+			st.status.SafeKeyLineCnt = chanBufferLen * st.workerNum + 10
+			defer st.status.Save(st.statusF)
+		}
+
+		skipLineCnt := 0
 		for _, f := range files {
 			log.Infof(">> produce hkeys from file: %s", f)
 			file, err := os.Open(f)
@@ -291,10 +477,28 @@ func (st *StressUtils) GetKeysAndAct(files []string, workerNum int, progress int
 			}
 
 			scanner := bufio.NewScanner(file)
+
+			// handle restart from last tasks
+			if st.status != nil {
+				// we need skip lines processed
+				if startCnt != 0 && f == files[0] {
+					for scanner.Scan() {
+						skipLineCnt++
+						if skipLineCnt > startCnt {
+							log.Warnf("skipped %s lines: %d", f, skipLineCnt)
+							break
+						}
+					}
+				}
+				st.status.CurrentF = f
+			}
+
 			chIdxStart := 0
 			for scanner.Scan() {
 				consumerChans[chIdxStart] <- scanner.Text()
-
+				if st.status != nil {
+					st.status.CurrentKey = scanner.Text()
+				}
 				total += 1
 				if progress != 0 {
 					if total % progress == 0 {
@@ -312,9 +516,35 @@ func (st *StressUtils) GetKeysAndAct(files []string, workerNum int, progress int
 			if err := scanner.Err(); err != nil {
 				log.Errorf("scan file %s err: %v", f, err)
 			}
+
+			// wait for consumer consume then proceed
+			for {
+				shouldNextFile := true
+				for _, c := range consumerChans {
+					if len(c) != 0 {
+						shouldNextFile = false
+						break
+					}
+				}
+
+				if shouldNextFile {
+					break
+				} else {
+					time.Sleep(1 * time.Second)
+				}
+			}
+
+			if st.status != nil {
+				st.status.HandledF = append(st.status.HandledF, f)
+			}
 		}
 		log.Infof("Added %d task records total", total)
 		log.Infof("all records proccessed, closing ch buffer ...")
+		// in here we have finished produce and all consumer chan empty
+		// now we say all files consumed
+		if st.status != nil {
+			st.status.SafeKeyLineCnt = 0
+		}
 	}()
 
 	log.Infof("waiting for task running ...")

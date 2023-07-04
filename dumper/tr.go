@@ -279,6 +279,23 @@ func (tr *TrKeyUtils) TrHkeysFromFiles(files []string, workerNum int, progress i
 			if err := scanner.Err(); err != nil {
 				log.Errorf("scan file %s err: %v", f, err)
 			}
+
+			// wait for consumer consume then proceed
+			for {
+				shouldNextFile := true
+				for _, c := range consumerChans {
+					if len(c) != 0 {
+						shouldNextFile = false
+						break
+					}
+				}
+
+				if shouldNextFile {
+					break
+				} else {
+					time.Sleep(1 * time.Second)
+				}
+			}
 		}
 		log.Infof("Added %d task records total", total)
 		log.Infof("all records proccessed, closing ch buffer ...")
