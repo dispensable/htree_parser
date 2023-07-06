@@ -45,6 +45,7 @@ func NewKeyFinder(addr string, port uint16, retries int) (*KeyFinder, error) {
 	client.ConfigTimeout(libmc.ConnectTimeout, time.Millisecond*300)
 	client.ConfigTimeout(libmc.PollTimeout, time.Second)
 	client.ConfigTimeout(libmc.RetryTimeout, time.Second*5)
+	client.SetMaxRetries(retries)
 
 	return &KeyFinder{
 		client: client,
