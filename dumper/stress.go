@@ -402,7 +402,7 @@ func (st *StressUtils) GetKeysAndAct(files []string, workerNum int, progress int
 			for t := range taskChan {
 				err := st.stFunc(t, fkf, tkf, prod)
 				if err != nil {
-					log.Debugf("run %s on key %s err: %v", st.action, t, err)
+					log.Infof("run %s on key %s err: %v", st.action, t, err)
 					if st.dumpErrorKey {
 						st.dumpFMgr.DumpLogger.Info(t)
 					}
@@ -413,7 +413,7 @@ func (st *StressUtils) GetKeysAndAct(files []string, workerNum int, progress int
 				total += 1
 				if progress != 0 {
 					if total % progress == 0 {
-						log.Infof("worker %d consumed %d records ...", idx, total)
+						log.Infof("worker %d consumed %d records ... err cnt: %d", idx, total, errored)
 					}
 				}
 			}
