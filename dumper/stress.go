@@ -61,10 +61,13 @@ func stGetSet(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
 	}
 
 	if err != nil {
-		return err
+		return fmt.Errorf("get from finder err: %s", err)
 	}
 	if prod {
-		return toFinder.client.Set(item)
+		err = toFinder.client.Set(item)
+		if err != nil {
+			return fmt.Errorf("set to db err: %s", err)
+		}
 	} else {
 		log.Infof("[DRY RUN] will set key %s to %s", key, item.Value)
 	}
@@ -84,11 +87,11 @@ func stGetCmp(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
 	itemT, errt := toFinder.client.Get(key)
 
 	if errf != nil {
-		return errf
+		return fmt.Errorf("get from keyfinder err: %s", errf)
 	}
 
 	if errt != nil {
-		return errt
+		return fmt.Errorf("get from tofinder err: %s", errt)
 	}
 	
 	if itemF == nil && itemT == nil {
@@ -111,11 +114,11 @@ func stSync(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
 	itemT, errt := toFinder.client.Get(key)
 
 	if errf != nil {
-		return errf
+		return fmt.Errorf("get from keyfinder err: %s", errf)
 	}
 
 	if errt != nil {
-		return errt
+		return fmt.Errorf("get from tofinder err: %s", errt)
 	}
 
 	if itemF == nil && itemT == nil {
@@ -125,13 +128,21 @@ func stSync(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
 	if itemF == nil || itemT == nil {
 		if itemF == nil {
 			if prod {
-				return toFinder.client.Delete(key)
+				err := toFinder.client.Delete(key)
+				if err != nil {
+					return fmt.Errorf("delete key from to finder err: %s", err)
+				}
+				return err
 			} else {
 				log.Infof("[DRY RUN] will delete key from to finder: %s", key)
 			}
 		} else {
 			if prod {
-				return toFinder.client.Set(itemF)
+				err := toFinder.client.Set(itemF)
+				if err != nil {
+					return fmt.Errorf("set key to finder err: %s", err)
+				}
+				return err
 			} else {
 				log.Infof("[DRY RUN] will set key %s to %s", key, itemF.Value)
 			}
@@ -143,7 +154,11 @@ func stSync(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
 	}
 
 	if prod {
-		return toFinder.client.Set(itemF)
+		err := toFinder.client.Set(itemF)
+		if err != nil {
+			return fmt.Errorf("set key to finder err: %s", err)
+		}
+		return err
 	} else {
 		log.Infof("[DRY RUN] will set key %s to %s", key, itemF.Value)
 	}
