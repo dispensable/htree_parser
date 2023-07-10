@@ -2,17 +2,14 @@ package dumper
 
 import (
 	"bufio"
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"sync"
-	"time"
-	"syscall"
 	"os/signal"
-
-	"math/rand"
+	"sync"
+	"syscall"
+	"time"
 )
 
 type stFuncT func(string, *KeyFinder, *KeyFinder, bool) error
@@ -52,141 +49,9 @@ type StressUtils struct {
 	// status file
 	statusF string
 	status *StressStatus
-}
 
-func stGetSet(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
-	item, err := fromFinder.client.Get(key)
-	if item == nil {
-		return nil
-	}
-
-	if err != nil {
-		return fmt.Errorf("get from finder err: %s", err)
-	}
-	if prod {
-		err = toFinder.client.Set(item)
-		if err != nil {
-			return fmt.Errorf("set to db err: %s", err)
-		}
-	} else {
-		log.Infof("[DRY RUN] will set key %s to %s", key, item.Value)
-	}
-	return nil
-}
-
-func stGet(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
-	item, err := toFinder.client.Get(key)
-	if item == nil {
-		return nil
-	}
-	return err
-}
-
-func stGetCmp(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
-	itemF, errf := fromFinder.client.Get(key)
-	itemT, errt := toFinder.client.Get(key)
-
-	if errf != nil {
-		return fmt.Errorf("get from keyfinder err: %s", errf)
-	}
-
-	if errt != nil {
-		return fmt.Errorf("get from tofinder err: %s", errt)
-	}
-	
-	if itemF == nil && itemT == nil {
-		return nil
-	}
-
-	if itemF == nil || itemT == nil {
-		return fmt.Errorf("itemF: %v itemT: %v | not all nil", itemF, itemT)
-	}
-
-	if bytes.Compare(itemF.Value, itemT.Value) == 0 {
-		return nil
-	}
-
-	return fmt.Errorf("itemF and itemT not equal: %v || %v", itemF, itemT)
-}
-
-func stSync(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
-	itemF, errf := fromFinder.client.Get(key)
-	itemT, errt := toFinder.client.Get(key)
-
-	if errf != nil {
-		return fmt.Errorf("get from keyfinder err: %s", errf)
-	}
-
-	if errt != nil {
-		return fmt.Errorf("get from tofinder err: %s", errt)
-	}
-
-	if itemF == nil && itemT == nil {
-		return nil
-	}
-
-	if itemF == nil || itemT == nil {
-		if itemF == nil {
-			if prod {
-				err := toFinder.client.Delete(key)
-				if err != nil {
-					return fmt.Errorf("delete key from to finder err: %s", err)
-				}
-				return err
-			} else {
-				log.Infof("[DRY RUN] will delete key from to finder: %s", key)
-			}
-		} else {
-			if prod {
-				err := toFinder.client.Set(itemF)
-				if err != nil {
-					return fmt.Errorf("set key to finder err: %s", err)
-				}
-				return err
-			} else {
-				log.Infof("[DRY RUN] will set key %s to %s", key, itemF.Value)
-			}
-		}
-	}
-
-	if bytes.Compare(itemF.Value, itemT.Value) == 0 {
-		return nil
-	}
-
-	if prod {
-		err := toFinder.client.Set(itemF)
-		if err != nil {
-			return fmt.Errorf("set key to finder err: %s", err)
-		}
-		return err
-	} else {
-		log.Infof("[DRY RUN] will set key %s to %s", key, itemF.Value)
-	}
-	return nil
-}
-
-func stDelete(key string, fromFinder, toFinder *KeyFinder, prod bool) error {
-	// _ = toFinder
-	if prod {
-		return fromFinder.client.Delete(key)
-	} else {
-		log.Infof("[DRY RUN] will delete key: %s", key)
-	}
-	return nil
-}
-
-func getFuncByRW(r int) (stFuncT, error) {
-	if !(r < 10) {
-		return nil, fmt.Errorf("r must < 10")
-	}
-
-	return func(key string, fkf, tkf *KeyFinder, prod bool) error {
-		if rand.Intn(10) < r {
-			return stGet(key, fkf, tkf, prod)
-		} else {
-			return stGetSet(key, fkf, tkf, prod)
-		}
-	}, nil
+	// key random
+	keyrandom bool
 }
 
 func NewStressUtils(
@@ -211,6 +76,7 @@ func NewStressUtils(
 	st.dumpErrorKey = *dumpErrorKey
 	st.production = *production
 	st.statusF = *statusF
+	st.keyrandom = true
 
 	if st.statusF != "" {
 		if exists, _ := IsPathExists(st.statusF); exists {
@@ -238,20 +104,33 @@ func NewStressUtils(
 	switch st.action {
 	case "getset":
 		st.stFunc = stGetSet
+	case "getrset":
+		st.stFunc = stGetRSet
 	case "get":
 		st.stFunc = stGet
+	case "rget":
+		st.stFunc = stRGet
 	case "getcmp":
 		st.stFunc = stGetCmp
+	case "getrcmp":
+		st.stFunc = stGetRCmp
 	case "sync":
 		st.stFunc = stSync
-	case "getsetp":
-		f, err := getFuncByRW(st.r)
+	case "getsetp", "getsetpr":
+		randKey := st.action == "getsetpr"
+		f, err := getFuncByRW(st.r, randKey)
 		if err != nil {
 			return nil, err
 		}
 		st.stFunc = f
+	case "deleter":
+		st.stFunc = stDeleteR
 	case "delete":
 		st.stFunc = stDelete
+	case "setrandom":
+		st.stFunc = setRandom
+	case "setrandomr":
+		st.stFunc = setRandomR
 	default:
 		st.stFunc = stGetSet
 	}
@@ -510,9 +389,10 @@ func (st *StressUtils) GetKeysAndAct(files []string, workerNum int, progress int
 
 			chIdxStart := 0
 			for scanner.Scan() {
-				consumerChans[chIdxStart] <- scanner.Text()
+				txt := scanner.Text()
+				consumerChans[chIdxStart] <- txt
 				if st.status != nil {
-					st.status.CurrentKey = scanner.Text()
+					st.status.CurrentKey = txt
 				}
 				total += 1
 				if progress != 0 {

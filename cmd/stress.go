@@ -20,12 +20,23 @@ you can use this cmd to test bdb like database
 
 support actions:
 
+# get set with same key
 - getset: get key from db and set to another db
 - getcmp: get key from both db and compare
 - get: get key from db
 - getsetp: get/set by use specific proportion eg: -r=5 means 50% read 50% write
 - sync: for each key, use fromdb as source, sync to tofinder
 - delete: for each key, delete from --db-addr
+- setrandm: for each key, set with random data
+
+# get set with rand key (prefix with key length)
+# this is for beansdb when key all from same bucket dump
+- getrset
+- rget
+- getrcmp
+- getsetpr
+- deleter
+- setrandmr
 `,
 	}
 
