@@ -132,7 +132,7 @@ func NewStressUtils(
 	case "setrandomr":
 		st.stFunc = setRandomR
 	default:
-		st.stFunc = stGetSet
+		return nil, fmt.Errorf("unsupported action: %s", st.action)
 	}
 
 	return st, nil
