@@ -5,6 +5,8 @@ import (
 	"os"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/douban/gobeansproxy/config"
 )
 
 type DumperCfg struct {
@@ -22,6 +24,11 @@ type DumperCfg struct {
 		KeyPatterns []string `yaml:"keyPatterns"`
 		NotKeyPatterns []string `yaml:"notKeyPatterns"`
 	} `yaml:"tr"`
+	ParseDataFile struct {
+		KeyPatterns []string `yaml:"keyPatterns"`
+		NotKeyPatterns []string `yaml:"notKeyPatterns"`
+		CassandraCfg config.CassandraStoreCfg `yaml:"cassandraCfg"`
+	} `yaml:"parseDataFile"`
 }
 
 func NewDumperCfgFromFile(cfgPath string) (*DumperCfg, error) {

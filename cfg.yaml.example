@@ -28,3 +28,22 @@ analysis:
   sepRE: ":|\||\-|_"
   # field or whole key matched this will be normalized to this str
   replacedTo: ".+"
+parseDataFile:
+  keyPatterns: []
+  notKeyPatterns: []
+  cassandraCfg:
+    default_key_space: doubandb
+    default_table: kvstore
+    enable_read: false
+    enable_write: true
+    hosts:
+    - 127.0.0.1:9042
+    timeout_ms: 1000
+    connect_timeout_ms: 3000
+    write_timeout_ms: 1000
+    retry_num: 3
+    reconnect_interval_sec: 180
+    max_conn_for_getm: 10
+    num_conns: 10
+    username: "CHANGEME"
+    password: "CHANGEME"
