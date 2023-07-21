@@ -38,12 +38,13 @@ type DataFileParser struct {
 
 	workerNumber int
 
+	prefix string
 	// output
 	outputFunc func (p *DataFileParser, rec *store.Record, keyOnly bool) error
 }
 
 func NewDataFileParser(
-	dfile, keyPattern, cfgFile, dbAddr, dbPathRaw, dumpTo, loggerLevel *string,
+	dfile, keyPattern, cfgFile, dbAddr, dbPathRaw, dumpTo, loggerLevel, prefix *string,
 	keylimit, sleepInterval, progress, rotateSize, workerNum *int,
 	dumpType KeyDumpType, dbPort *uint16,
 	writeToCstar *bool,
@@ -54,6 +55,7 @@ func NewDataFileParser(
 	p.KeyLimit = *keylimit
 	p.KeyPatternRaw = *keyPattern
 	p.workerNumber = *workerNum
+	p.prefix = *prefix
 
 	if *keyPattern != "" {
 		re, err := regexp.Compile(p.KeyPatternRaw)
@@ -162,7 +164,7 @@ func (p *DataFileParser) WriteToCstar(rec *store.Record, keyOnly bool) error {
 		}
 		value.Body = rec.Payload.Body
 	}
-	_, err := p.cstarStore.SetWithValue(string(rec.Key), value)
+	_, err := p.cstarStore.SetWithValue(fmt.Sprintf("%s%s", p.prefix, rec.Key), value)
 	return err
 }
 
@@ -178,7 +180,7 @@ func (p *DataFileParser) WriteToDB(rec *store.Record, keyOnly bool) error {
 
 	// insert of update
 	item := golibmc.Item{}
-	item.Key = string(rec.Key)
+	item.Key = fmt.Sprintf("%s%s", p.prefix, rec.Key)
 	item.Flags = rec.Payload.Flag
 	if keyOnly {
 		item.Value = []byte{}

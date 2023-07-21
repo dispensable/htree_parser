@@ -30,6 +30,7 @@ func init() {
 		dumpTo *string
 		rotateSize *int
 		workerNum *int
+		prefix *string
 	)
 
 	parseDataFileCmd := &cobra.Command{
@@ -50,7 +51,7 @@ func init() {
 
 			// logic goes here
 			parser, err := dumper.NewDataFileParser(
-				DBDataFile, keyPattern, cfgFile, dbAddr, dbpathraw, dumpTo, loggerLevel,
+				DBDataFile, keyPattern, cfgFile, dbAddr, dbpathraw, dumpTo, loggerLevel, prefix,
 				keyLimit, sleepInterval, progress, rotateSize, workerNum,
 				kt, dbPort, writeToCstar,
 			)
@@ -79,6 +80,7 @@ func init() {
 	rotateSize = flag.IntP("max-file-size-mb", "S", 500, "rotate file when dump file size over this throshold, MB")
 	loggerLevel = flag.StringP("log-level", "L", "info", "log level: info warn error fatal debug trace")
 	workerNum = flag.IntP("worker-num", "w", 1, "only support tr from file")
+	prefix = flag.StringP("prefix", "F", "", "add prefix to key")
 
 	parseDataFileCmd.MarkFlagRequired("key-type")
 	parseDataFileCmd.MarkFlagRequired("db-data-file")
