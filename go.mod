@@ -9,6 +9,7 @@ require (
 	github.com/douban/libmc v1.4.2
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
+	github.intra.douban.com/coresys/gorivendb v0.0.0-20200121083828-152df2ab040c
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v3 v3.0.1
 )

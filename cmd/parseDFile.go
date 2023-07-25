@@ -25,6 +25,7 @@ func init() {
 		dbPort *uint16
 		writeToCstar *bool
 		enableProf *bool
+		isRivendb *bool
 		loggerLevel *string
 		dbpathraw *string
 		dumpTo *string
@@ -53,12 +54,17 @@ func init() {
 			parser, err := dumper.NewDataFileParser(
 				DBDataFile, keyPattern, cfgFile, dbAddr, dbpathraw, dumpTo, loggerLevel, prefix,
 				keyLimit, sleepInterval, progress, rotateSize, workerNum,
-				kt, dbPort, writeToCstar,
+				kt, dbPort, writeToCstar, isRivendb,
 			)
 			if err != nil {
 				return err
 			}
-			return parser.Parse(*enableProf)
+
+			if *isRivendb {
+				return parser.ParseRiven()
+			} else {
+				return parser.Parse(*enableProf)
+			}
 		},
 	}
 
@@ -75,6 +81,7 @@ func init() {
 	dbPort = flag.Uint16P("db-port", "p", 7900, "beansdb port")
 	writeToCstar = flag.BoolP("write-to-cstar", "C", false, "direct write to cstar, ignore -d/-P")
 	enableProf = flag.BoolP("enable-prof", "P", false, "enable profiling of parse")
+	isRivendb = flag.BoolP("use-rivendb-parser", "R", false, "enable rivendb parser")
 	dumpTo = flag.StringP("dump-to-dir", "D", "./", "dump to dir")
 	dbpathraw = flag.StringP("db-path", "b", "", "db bucket path, eg a/b bucket")
 	rotateSize = flag.IntP("max-file-size-mb", "S", 500, "rotate file when dump file size over this throshold, MB")
