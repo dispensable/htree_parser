@@ -44,6 +44,7 @@ type DataFileParser struct {
 	rivenOutputF func (p *DataFileParser, rec *Record) error
 
 	isRivendb bool
+	KeyMgr *DumpFileMgr
 }
 
 func NewDataFileParser(
@@ -125,6 +126,15 @@ func NewDataFileParser(
 		p.outputFunc = WriteToDB
 	}
 
+	if p.OnlyKey {
+		m, err := NewDumpFileMgr(dbPathRaw, dumpTo, loggerLevel, rotateSize, StrKey)
+		if err != nil {
+			return nil, err
+		}
+
+		p.KeyMgr = m
+	}
+
 	if *dumpTo != "" {
 		mgr, err := NewDumpFileMgr(dbPathRaw, dumpTo, loggerLevel, rotateSize, ErrorKey)
 		if err != nil {
@@ -158,10 +168,13 @@ func (p *DataFileParser) writeRivenDataToCstar(rec *Record) error {
 	value.Flag = int(rec.Flag)
 	value.Exptime = 0
 	value.Body = rec.Value
+
 	_, err := p.cstarStore.SetWithValue(fmt.Sprintf("%s%s", p.prefix, rec.Key), value)
+	if err != nil {
+		log.Warnf("set key err: %s", err)
+	}
 	return err
 }
-
 
 func WriteToCstar(p *DataFileParser, rec *store.Record, keyOnly bool) error {
 	return p.WriteToCstar(rec, keyOnly)
@@ -354,7 +367,12 @@ func (p *DataFileParser) ParseRiven() error {
 			log.Infof("EOF of %s", p.DBDataFile)
 			break
 		}
-		
+
+		if p.OnlyKey {
+			p.KeyMgr.DumpLogger.Println(rec.Key)
+			continue
+		}
+
 		// hash to bucket chan
 		idx := hash([]byte(rec.Key)) % blen
 
@@ -368,6 +386,10 @@ func (p *DataFileParser) ParseRiven() error {
 		if p.KeyLimit != 0 && cnt >= p.KeyLimit {
 			log.Infof("produced tasks matched user limit: %d", cnt)
 			break
+		}
+
+		if p.SleepInterval != 0 {
+			time.Sleep(time.Duration(p.SleepInterval) * time.Millisecond)
 		}
 	}
 
@@ -454,6 +476,10 @@ func (p *DataFileParser) Parse(enableProf bool) error {
 		if p.KeyLimit != 0 && cnt >= p.KeyLimit {
 			log.Infof("produced tasks matched user limit: %d", cnt)
 			break
+		}
+
+		if p.SleepInterval != 0 {
+			time.Sleep(time.Duration(p.SleepInterval) * time.Millisecond)
 		}
 	}
 
