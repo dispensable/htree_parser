@@ -121,8 +121,8 @@ func ReadRecordNext(f *os.File) (*Record, error) {
 		copy(tmp[i:], restData)
 		data = tmp
 	}
-	rec.decode(data)
-	return rec, nil
+	err = rec.decode(data)
+	return rec, err
 }
 
 func ReadRecordAt(f *os.File, offset uint32) (*Record, error) {

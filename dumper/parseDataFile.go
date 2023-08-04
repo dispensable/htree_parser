@@ -297,7 +297,7 @@ func (p *DataFileParser) StartRivenConsumer(wg *sync.WaitGroup) ([]chan *Record,
 func (p *DataFileParser) StarConsumer(wg *sync.WaitGroup, keyOnly bool) ([]chan *store.Record, error) {
 	var consumerChans []chan *store.Record
 	dmpLog := p.dumpFMgr.DumpLogger
-	
+
 	for i := 0; i <p.workerNumber; i++ {
 		wg.Add(1)
 
