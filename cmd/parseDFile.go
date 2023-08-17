@@ -42,10 +42,12 @@ func init() {
 			var kt dumper.KeyDumpType
 
 			switch int64(*keyType) {
-			case int64(dumper.HashKey):
-				kt = dumper.HashKey
-			case int64(dumper.StrKey):
-				kt = dumper.StrKey
+			case int64(dumper.ParseStrKVToDB):
+				kt = dumper.ParseStrKVToDB
+			case int64(dumper.ParseStrKeyToDB):
+				kt = dumper.ParseStrKeyToDB
+			case int64(dumper.ParseStrKeyToF):
+				kt = dumper.ParseStrKeyToF
 			default:
 				return fmt.Errorf("unsupport key type: %d", *keyType)
 			}
@@ -76,7 +78,7 @@ func init() {
 	cfgFile = flag.StringP("cfg", "c", "", "cfg file for dump")
 	sleepInterval = flag.IntP("sleep-interval-ms", "i", 1000, "sleep N ms during each key get")
 	progress = flag.IntP("progress", "g", 1000, "show progress every N lines, 0 means no progress")
-	keyType = flag.IntP("key-type", "t", 0, "dumped key type, 0: hash key 1: string key")
+	keyType = flag.IntP("key-type", "t", 5, "dump type: 4-dump key to db; 5-dump kv to db; 6-dump key to file")
 	dbAddr = flag.StringP("db-addr", "d", "127.0.0.1", "beansdb addr")
 	dbPort = flag.Uint16P("db-port", "p", 7900, "beansdb port")
 	writeToCstar = flag.BoolP("write-to-cstar", "C", false, "direct write to cstar, ignore -d/-P")

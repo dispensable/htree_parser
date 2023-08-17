@@ -75,7 +75,7 @@ func NewCounterMgr(loadFromFiles *[]string, maxFieldLen int,
 	if *dumpTo == "-" {
 		r.dumpFMgr = nil
 	} else {
-		dumpFmgr, err := NewDumpFileMgr(dbpathRaw, dumpTo, loggerLevel, rotateSize, NurlKey)
+		dumpFmgr, err := NewDumpFileMgr(dbpathRaw, dumpTo, loggerLevel, rotateSize, NurlKey, nil)
 		if err != nil {
 			return nil, err
 		}

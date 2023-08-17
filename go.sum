@@ -10,8 +10,8 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dghubble/trie v0.0.0-20220811160003-18e0eff3ca7b h1:TDVVzd8q/n2YLqidDna2iptspyyNyqi9nZmxNA6Yrg0=
 github.com/dghubble/trie v0.0.0-20220811160003-18e0eff3ca7b/go.mod h1:GWlN/cTm3wBVk2lr8Wszyla0FEgP9EH12iTLm7AH96k=
-github.com/dispensable/gobeansproxy v1.1000.6 h1:2D5t4XERy4DiA6SiqOBq/go1gJAh4yzN3BwI0bJvGzw=
-github.com/dispensable/gobeansproxy v1.1000.6/go.mod h1:7SBhzeNx8JcIgJAdOpcjzAVDDf2OTUrqYKRHgTGeJuw=
+github.com/dispensable/gobeansproxy v1.1000.10 h1:8jUEyrlEYLR0QXw7bfx41gQDlQHQCiTqu2bvSAPtUBI=
+github.com/dispensable/gobeansproxy v1.1000.10/go.mod h1:HaS+IbJyPMf1MwC58+EM/GfS6Y1PwuRJh76g3M40FxI=
 github.com/douban/libmc v1.4.2 h1:tVs8uZBhroBZbjxudwi6tr8JrhfnSacn+4OeE5OHnog=
 github.com/douban/libmc v1.4.2/go.mod h1:BL+PyJkxJ8R4/hlJpTpOKaH6yDwR9xKAsdrWNNKBWAU=
 github.com/go-errors/errors v1.4.2 h1:J6MZopCL4uSllY1OfXM374weqZFFItUbrImctkmUxIA=

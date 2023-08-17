@@ -91,7 +91,7 @@ func NewStressUtils(
 	}
 
 	if st.dumpErrorKey {
-		mgr, err := NewDumpFileMgr(dbpathRaw, dumpTo, loggerLevel, rotateSize, ErrorKey)
+		mgr, err := NewDumpFileMgr(dbpathRaw, dumpTo, loggerLevel, rotateSize, ErrorKey, nil)
 		if err != nil {
 			return nil, err
 		}

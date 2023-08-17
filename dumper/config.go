@@ -27,6 +27,8 @@ type DumperCfg struct {
 	ParseDataFile struct {
 		KeyPatterns []string `yaml:"keyPatterns"`
 		NotKeyPatterns []string `yaml:"notKeyPatterns"`
+		Prefixes []string `yaml:"prefixes"`
+		NotPrefixes []string `yaml:"notPrefixes"`
 		CassandraCfg config.CassandraStoreCfg `yaml:"cassandraCfg"`
 	} `yaml:"parseDataFile"`
 }

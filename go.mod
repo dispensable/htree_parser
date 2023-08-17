@@ -9,6 +9,7 @@ require (
 	github.com/douban/libmc v1.4.2
 	github.com/sirupsen/logrus v1.9.0
 	github.com/spf13/cobra v1.6.1
+	github.com/viant/ptrie v0.3.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -23,7 +24,6 @@ require (
 	github.com/samuel/go-zookeeper v0.0.0-20190923202752-2cc03de413da // indirect
 	github.com/spaolacci/murmur3 v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/viant/ptrie v0.3.0 // indirect
 	github.com/viant/toolbox v0.34.5 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
 	golang.org/x/sync v0.3.0 // indirect
@@ -35,4 +35,4 @@ require (
 
 replace github.com/douban/gobeansdb => ../gobeansdb
 
-replace github.com/douban/gobeansproxy => github.com/dispensable/gobeansproxy v1.1000.6
+replace github.com/douban/gobeansproxy => github.com/dispensable/gobeansproxy v1.1000.10

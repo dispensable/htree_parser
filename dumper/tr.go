@@ -58,7 +58,7 @@ func NewTrKeyUtils(
 	}
 	tr.keyFinder = kf
 
-	mgr, err := NewDumpFileMgr(dbpathRaw, dumpTo, loggerLevel, rotateSize, toT)
+	mgr, err := NewDumpFileMgr(dbpathRaw, dumpTo, loggerLevel, rotateSize, toT, nil)
 	if err != nil {
 		return nil, err
 	}

@@ -18,6 +18,11 @@ const (
 	StrKey KeyDumpType = 1
 	NurlKey KeyDumpType = 2
 	ErrorKey KeyDumpType = 3
+
+	// for parse data file sub cmd
+	ParseStrKeyToDB KeyDumpType = 4
+	ParseStrKVToDB KeyDumpType = 5
+	ParseStrKeyToF KeyDumpType = 6
 )
 
 type KeyDumper struct {
@@ -77,7 +82,7 @@ func NewKeyDumper(
 	keyDumper.DBAddr = *dbAddr
 	keyDumper.DBPort = *dbPort
 
-	mgr, err := NewDumpFileMgr(bktPath, dumpToDir, logLevel, maxFileSizeMB, keyType)
+	mgr, err := NewDumpFileMgr(bktPath, dumpToDir, logLevel, maxFileSizeMB, keyType, nil)
 	if err != nil {
 		return nil, err
 	}

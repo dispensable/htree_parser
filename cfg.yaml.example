@@ -31,6 +31,8 @@ analysis:
 parseDataFile:
   keyPatterns: []
   notKeyPatterns: []
+  prefixes: []
+  notPrefixes: []
   cassandraCfg:
     default_key_space: doubandb
     default_table: kvstore

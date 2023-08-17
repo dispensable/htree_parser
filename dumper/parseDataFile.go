@@ -12,6 +12,12 @@ import (
 	"github.com/douban/gobeansdb/store"
 	"github.com/douban/gobeansproxy/cassandra"
 	golibmc "github.com/douban/libmc/src"
+	logrus "github.com/sirupsen/logrus"
+)
+
+const (
+	PrefixAllowDump int = 1
+	PrefixSkipDump int = 2
 )
 
 type DataFileParser struct {
@@ -23,9 +29,12 @@ type DataFileParser struct {
 	KeyPatternRegexes []*regexp.Regexp
 	NotKeyPatternRegexes []*regexp.Regexp
 
+	// trie for prefix match key
+	// efficient fast than regex when only prefix match
+	prefixMatcher *PrefixMatcher
+
 	SleepInterval int
 	Progress int
-	OnlyKey bool
 	cfg *DumperCfg
 
 	reader *store.DataStreamReader
@@ -45,6 +54,8 @@ type DataFileParser struct {
 
 	isRivendb bool
 	KeyMgr *DumpFileMgr
+
+	dumpType KeyDumpType
 }
 
 func NewDataFileParser(
@@ -61,6 +72,7 @@ func NewDataFileParser(
 	p.workerNumber = *workerNum
 	p.prefix = *prefix
 	p.isRivendb = *isRivendb
+	p.dumpType = dumpType
 
 	if *keyPattern != "" {
 		re, err := regexp.Compile(p.KeyPatternRaw)
@@ -94,6 +106,14 @@ func NewDataFileParser(
 				regexp.MustCompile(np),
 			)
 		}
+
+		if len(cfg.ParseDataFile.Prefixes) > 0 || len(cfg.ParseDataFile.NotPrefixes) > 0 {
+			m, err := NewPrefixMatcher(cfg.ParseDataFile.Prefixes, cfg.ParseDataFile.NotPrefixes, PrefixSkipDump)
+			if err != nil {
+				return nil, err
+			}
+			p.prefixMatcher = m
+		}
 	} else {
 		if p.writeToCstar {
 			return nil, fmt.Errorf("If set write to Cstar, you must pass cfgfile")
@@ -111,7 +131,7 @@ func NewDataFileParser(
 	}
 
 	p.setter = client
-	p.OnlyKey = dumpType == StrKey
+
 	if p.cfg.ParseDataFile.CassandraCfg.WriteEnable {
 		s, err := cassandra.NewCassandraStore(&p.cfg.ParseDataFile.CassandraCfg)
 		if err != nil {
@@ -126,17 +146,18 @@ func NewDataFileParser(
 		p.outputFunc = WriteToDB
 	}
 
-	if p.OnlyKey {
-		m, err := NewDumpFileMgr(dbPathRaw, dumpTo, loggerLevel, rotateSize, StrKey)
+	if p.dumpType == ParseStrKeyToF {
+		m, err := NewDumpFileMgr(dbPathRaw, dumpTo, loggerLevel, rotateSize, ParseStrKeyToF, logrus.New())
 		if err != nil {
 			return nil, err
 		}
 
+		log.Infof("Will dump to file: %s", m.DumpFile)
 		p.KeyMgr = m
 	}
 
 	if *dumpTo != "" {
-		mgr, err := NewDumpFileMgr(dbPathRaw, dumpTo, loggerLevel, rotateSize, ErrorKey)
+		mgr, err := NewDumpFileMgr(dbPathRaw, dumpTo, loggerLevel, rotateSize, ErrorKey, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -294,9 +315,12 @@ func (p *DataFileParser) StartRivenConsumer(wg *sync.WaitGroup) ([]chan *Record,
 }
 
 
-func (p *DataFileParser) StarConsumer(wg *sync.WaitGroup, keyOnly bool) ([]chan *store.Record, error) {
+func (p *DataFileParser) StartConsumer(wg *sync.WaitGroup) ([]chan *store.Record, error) {
 	var consumerChans []chan *store.Record
+
+	usePrefixMatch := p.prefixMatcher != nil
 	dmpLog := p.dumpFMgr.DumpLogger
+	onlyWriteKeyToDB := p.dumpType == ParseStrKeyToDB
 
 	for i := 0; i <p.workerNumber; i++ {
 		wg.Add(1)
@@ -304,15 +328,25 @@ func (p *DataFileParser) StarConsumer(wg *sync.WaitGroup, keyOnly bool) ([]chan 
 		log.Infof("Adding worker number: %d", i)
 		c := make(chan *store.Record, 10)
 		consumerChans = append(consumerChans, c)
+		var pMatcher *PrefixMatcher
+		if usePrefixMatch {
+			m, err := NewPrefixMatcher(p.cfg.ParseDataFile.Prefixes, p.cfg.ParseDataFile.NotPrefixes, PrefixSkipDump)
+			if err != nil {
+				return nil, err
+			}
+			pMatcher = m
+		}
 
-		go func(parser *DataFileParser, taskChan chan *store.Record, idx int) {
+		go func(parser *DataFileParser, taskChan chan *store.Record, idx int, pMatcher *PrefixMatcher) {
 			defer wg.Done()
 			log.Infof("consumer %d started ...", idx)
 			total := 0
 			errorCnt := 0
+			skipped := 0
 			for t := range taskChan {
 				total += 1
-				err := p.outputFunc(parser, t, keyOnly)
+
+				err := p.outputFunc(parser, t, onlyWriteKeyToDB)
 				if err != nil {
 					log.Debugf("set value failed of key %s err: %v", t.Key, err)
 					if p.dumpFMgr != nil {
@@ -324,12 +358,12 @@ func (p *DataFileParser) StarConsumer(wg *sync.WaitGroup, keyOnly bool) ([]chan 
 
 				if p.Progress != 0 {
 					if total % p.Progress == 0 {
-						log.Infof("worker %d consumed %d records, errcnt: %d", idx, total, errorCnt)
+						log.Infof("worker %d consumed %d records, errcnt: %d, skipped: %d", idx, total, errorCnt, skipped)
 					}
 				}
 			}
-			log.Infof("consumer %d exit, total: %d, error cnt: %d", idx, total, errorCnt)
-		}(p, c, i)
+			log.Infof("consumer %d exit, total: %d, error cnt: %d, skipped: %d", idx, total, errorCnt, skipped)
+		}(p, c, i, pMatcher)
 	}
 	return consumerChans, nil
 }
@@ -356,6 +390,7 @@ func (p *DataFileParser) ParseRiven() error {
 
 	decompressErrCnt := 0
 	cnt := 0
+	dumpKeyToF := p.dumpType == ParseStrKeyToF
 
 	for {
 		rec, err := ReadRecordNext(f)
@@ -368,7 +403,7 @@ func (p *DataFileParser) ParseRiven() error {
 			break
 		}
 
-		if p.OnlyKey {
+		if dumpKeyToF {
 			p.KeyMgr.DumpLogger.Println(rec.Key)
 			continue
 		}
@@ -437,14 +472,32 @@ func (p *DataFileParser) Parse(enableProf bool) error {
 	cnt := 0
 
 	var wg sync.WaitGroup
-	recChan, err := p.StarConsumer(&wg, p.OnlyKey)
+	recChan, err := p.StartConsumer(&wg)
 	if err != nil {
 		return err
 	}
 	blen := uint32(len(recChan))
 
 	decompressErrCnt := 0
-	
+
+	usePrefixMatch := p.prefixMatcher != nil
+	onlyWriteKeyToF := p.dumpType == ParseStrKeyToF
+	var keyDumpLogger *logrus.Logger
+	if onlyWriteKeyToF {
+		keyDumpLogger = p.KeyMgr.DumpLogger
+	}
+
+	var pMatcher *PrefixMatcher
+	if usePrefixMatch {
+		m, err := NewPrefixMatcher(p.cfg.ParseDataFile.Prefixes, p.cfg.ParseDataFile.NotPrefixes, PrefixSkipDump)
+		if err != nil {
+			return err
+		}
+		pMatcher = m
+	}
+	total := 0
+	skipped := 0
+
 	for {
 		rec, offset, _, err := reader.Next()
 		if err != nil {
@@ -456,6 +509,22 @@ func (p *DataFileParser) Parse(enableProf bool) error {
 			break
 		}
 
+		total += 1
+		if usePrefixMatch {
+			// handle prefix match logic
+			v := pMatcher.GetV(rec.Key)
+			if v == PrefixSkipDump {
+				skipped += 1
+				continue
+			}
+		}
+
+		if onlyWriteKeyToF {
+			log.Debugf("will dump key to logger: %s", p.KeyMgr.DumpFile)
+			keyDumpLogger.Println(fmt.Sprintf("%s, %d", rec.Key, rec.Payload.Ver))
+			continue
+		}
+
 		if rec.Payload.IsCompressed() {
 			err := rec.Payload.Decompress()
 			if err != nil {
@@ -464,6 +533,7 @@ func (p *DataFileParser) Parse(enableProf bool) error {
 			}
 		}
 
+		// log.Debugf("--> get key: %s | v: %+v", rec.Key, rec)
 		// hash to bucket chan
 		idx := hash(rec.Key) % blen
 
@@ -504,5 +574,6 @@ func (p *DataFileParser) Parse(enableProf bool) error {
 	}
 
 	wg.Wait()
+	log.Infof("Producer produced: %d skip: %d", total, skipped)
 	return nil
 }

@@ -43,7 +43,11 @@ type DumpFileMgr struct {
 	DumpLogger *logrus.Logger
 }
 
-func NewDumpFileMgr(dbpathRaw, dumpTo, logLevel *string, rotateSize *int, keyType KeyDumpType) (*DumpFileMgr, error) {
+func NewDumpFileMgr(dbpathRaw, dumpTo, logLevel *string, rotateSize *int, keyType KeyDumpType, logger *logrus.Logger) (*DumpFileMgr, error) {
+	if logger == nil {
+		logger = dumpLogger
+	}
+
 	setLogLevel(*logLevel)
 	dbpath := strings.Split(*dbpathRaw, "/")
 	log.Infof("dbpath : %v | %v\n", dbpathRaw, dbpath)
@@ -65,6 +69,8 @@ func NewDumpFileMgr(dbpathRaw, dumpTo, logLevel *string, rotateSize *int, keyTyp
 		kt = "nurl"
 	case ErrorKey:
 		kt = "error"
+	case ParseStrKeyToF:
+		kt = "pstr"
 	default:
 		return nil, fmt.Errorf("unsupport keytyle: %v", keyType)
 	}
@@ -87,7 +93,7 @@ func NewDumpFileMgr(dbpathRaw, dumpTo, logLevel *string, rotateSize *int, keyTyp
 	}
 
 	// set dump Logger
-	dumpLogger.SetFormatter(&DumpKeyFormatter{logrus.TextFormatter{
+	logger.SetFormatter(&DumpKeyFormatter{logrus.TextFormatter{
 		DisableQuote: true,
 		DisableColors: true,
 		DisableSorting: true,
@@ -95,13 +101,13 @@ func NewDumpFileMgr(dbpathRaw, dumpTo, logLevel *string, rotateSize *int, keyTyp
 		DisableLevelTruncation: true,
 	}})
 	dumpFile := filepath.Join(*dumpTo, fmt.Sprintf(dumpFilePatternFormat, *dbpathRaw, kt))
-	dumpLogger.SetOutput(&rotateLogger.Logger{
+	logger.SetOutput(&rotateLogger.Logger{
 		Filename: dumpFile,
 		MaxSize: *rotateSize,
 	})
 
 	return &DumpFileMgr{
 		DumpFile: dumpFile,
-		DumpLogger: dumpLogger,
+		DumpLogger: logger,
 	}, nil
 }
