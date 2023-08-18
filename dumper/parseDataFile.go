@@ -489,7 +489,11 @@ func (p *DataFileParser) Parse(enableProf bool) error {
 
 	var pMatcher *PrefixMatcher
 	if usePrefixMatch {
-		m, err := NewPrefixMatcher(p.cfg.ParseDataFile.Prefixes, p.cfg.ParseDataFile.NotPrefixes, PrefixSkipDump)
+		m, err := NewPrefixMatcher(
+			p.cfg.ParseDataFile.Prefixes,
+			p.cfg.ParseDataFile.NotPrefixes,
+			PrefixSkipDump,
+		)
 		if err != nil {
 			return err
 		}

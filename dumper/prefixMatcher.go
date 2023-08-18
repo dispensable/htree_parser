@@ -1,53 +1,61 @@
 package dumper
 
 import (
-	"fmt"
 
-	"github.com/viant/ptrie"
+	"github.com/acomagu/trie/v2"
 )
 
 
 type PrefixMatcher struct {
-	trie *ptrie.Trie
+	trie *trie.Tree[byte, int]
 	defaultT int
 }
 
 
 func NewPrefixMatcher(prefixes, notPrefixes []string, defaultV int) (*PrefixMatcher, error) {
-	t := ptrie.New()
+	kBytes := [][]byte{}
+	vInts := []int{}
 
 	for _, ap := range prefixes {
-		err := t.Put([]byte(ap), PrefixAllowDump)
-		if err != nil {
-			return nil, fmt.Errorf("put prefix %s to trie err: %s", ap, err)
-		}
+		kBytes = append(kBytes, []byte(ap))
+		vInts = append(vInts, PrefixAllowDump)
 	}
 
 	for _, np := range notPrefixes {
-		err := t.Put([]byte(np), PrefixSkipDump)
-		if err != nil {
-			return nil, fmt.Errorf("put not allow prefix %s to trie err: %s", np, err)
-		}
+		kBytes = append(kBytes, []byte(np))
+		vInts = append(vInts, PrefixSkipDump)
 	}
+
+	t := trie.New[byte, int](kBytes, vInts)
 
 	result := &PrefixMatcher{
 		trie: &t,
 		defaultT: defaultV,
 	}
-	
+
 	return result, nil
 }
 
 func (p *PrefixMatcher) GetV(key []byte) int {
-	var result int
-	v := (*(p.trie)).MatchPrefix(key, func(key []byte, value interface{}) bool {
-		result = value.(int)
-		return true
-	})
+	var v int
+	var match bool
 
-	if !v {
-		return p.defaultT
+	n := *(p.trie)
+
+	for _, c := range key {
+		if n = n.TraceOne(c); n == nil {
+			break
+		}
+
+		if vv, ok := n.Terminal(); ok {
+			v = vv
+			match = true
+		}
+	}
+
+	if match {
+		return v
 	} else {
-		return result
+		return p.defaultT
 	}
 }
